@@ -6,6 +6,7 @@ const BASE_URL = "http://localhost:8000"; // Ensure this matches your backend
 const BookingForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const flightDetails = location.state?.flight ?? {}; // Ensure it's an object
 
   const [formData, setFormData] = useState({
@@ -61,7 +62,6 @@ const BookingForm = () => {
         throw new Error(errorData.detail || "Failed to submit booking.");
       }
 
-      const data = await response.json();
       alert("Your booking request has been submitted!");
 
       // Redirect to bookings page

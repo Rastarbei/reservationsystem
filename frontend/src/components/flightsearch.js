@@ -14,30 +14,33 @@ const FlightSearch = () => {
 
   // Fetch flights
   const handleSearch = async () => {
-    if (!from || !to || !date) {
-      setError("Please fill in all fields.");
+    if (!from || !to) {
+      setError("Please enter both origin and destination.");
       return;
     }
 
     try {
-      const response = await fetch(
-        `${BASE_URL}/api/flights/?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&date=${encodeURIComponent(date)}`,
-        { credentials: "include" }
-      );
+      const url = `${BASE_URL}/api/flights/?origin=${encodeURIComponent(from)}&destination=${encodeURIComponent(to)}`;
+      const response = await fetch(url, { credentials: "include" });
 
       if (!response.ok) throw new Error("Failed to fetch flights");
 
       const data = await response.json();
-      setFlights(data.length > 0 ? data : []);
-      setError(data.length > 0 ? null : "No flights found.");
+      if (data.length > 0) {
+        setFlights(data);
+        setError(null);
+      } else {
+        setFlights([]);
+        setError("No flights found.");
+      }
     } catch (err) {
       console.error("Search Error:", err);
-      setError("No flights found or an error occurred.");
+      setError("Error fetching flights.");
       setFlights([]);
     }
   };
 
-  // Navigate to Booking page with flight details
+  // Navigate to Booking Page with flight details
   const handleBooking = (flight) => {
     navigate("/booking", { state: { flight } });
   };

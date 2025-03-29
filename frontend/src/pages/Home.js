@@ -3,6 +3,7 @@ import FlightSearch from "../components/flightsearch";
 
 const Home = () => {
   const [flights, setFlights] = useState([]);
+  const [filteredFlights, setFilteredFlights] = useState([]);
   const [loading, setLoading] = useState(true);
   const API_URL = "http://localhost:8000/api/flights/";
 
@@ -10,19 +11,19 @@ const Home = () => {
     const fetchFlights = async () => {
       setLoading(true);
       try {
-        const token = localStorage.getItem("token"); // Get token from storage
+        const token = localStorage.getItem("token");
         const response = await fetch(API_URL, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`, // Include credentials in request
+            Authorization: `Bearer ${token}`,
           },
         });
-  
+
         if (!response.ok) {
           throw new Error("Failed to fetch flights");
         }
-  
+
         const data = await response.json();
         setFlights(data);
       } catch (error) {
@@ -31,10 +32,9 @@ const Home = () => {
         setLoading(false);
       }
     };
-  
+
     fetchFlights();
   }, []);
-    
 
   return (
     <div className="main-container">
@@ -44,7 +44,7 @@ const Home = () => {
           <p>Find the best deals and book your flights in seconds.</p>
         </header>
 
-        <FlightSearch />
+        <FlightSearch setFilteredFlights={setFilteredFlights} />
 
         <section className="flights">
           <h2 className="section-title">Upcoming Flights</h2>
@@ -52,8 +52,8 @@ const Home = () => {
           <div className="flight-list">
             {loading ? (
               <div className="loading-spinner"></div>
-            ) : flights.length > 0 ? (
-              flights.map((flight) => (
+            ) : (filteredFlights.length > 0 ? filteredFlights : flights).length > 0 ? (
+              (filteredFlights.length > 0 ? filteredFlights : flights).map((flight) => (
                 <div key={flight.id} className="flight-card">
                   <h4 className="flight-price">From ${flight.price}</h4>
                   <p className="flight-route">

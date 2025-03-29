@@ -1,48 +1,99 @@
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
-const BASE_URL = "http://127.0.0.1:8000/api/reservations/";
+const FLIGHTS_URL = "http://127.0.0.1:8000/api/flights/";
+const RESERVATION_URL = "http://127.0.0.1:8000/api/reservations/";
 
 const Bookings = () => {
-  const location = useLocation();
   const navigate = useNavigate();
-  const flight = location.state?.flight; // Retrieve flight details
-
+  const [flights, setFlights] = useState([]);
+  const [searchQuery, setSearchQuery] = useState({ flightNumber: "", origin: "", destination: "" });
+  const [searchError, setSearchError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [selectedFlight, setSelectedFlight] = useState(null);
   const [passengerName, setPassengerName] = useState("");
-  const [seats, setSeats] = useState(1);
+  const [email, setEmail] = useState("");
   const [bookingStatus, setBookingStatus] = useState(null);
 
-  // If no flight details are passed, show an error message
-  if (!flight) {
-    return <p className="error">No flight selected. Please go back and choose a flight.</p>;
-  }
+  // Handle Flight Search
+  const handleSearch = async () => {
+    setFlights([]);
+    setSearchError(null);
+    setLoading(true);
 
-  // Handle booking submission
-  const handleBooking = async (e) => {
-    e.preventDefault(); // Prevent form refresh
+    const queryParams = new URLSearchParams();
+    if (searchQuery.flightNumber.trim()) queryParams.append("flight_number", searchQuery.flightNumber);
+    if (searchQuery.origin.trim()) queryParams.append("origin", searchQuery.origin);
+    if (searchQuery.destination.trim()) queryParams.append("destination", searchQuery.destination);
+
+    if (!queryParams.toString()) {
+      setSearchError("Please enter a flight number, origin, or destination.");
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch(BASE_URL, {  // ✅ Fixed API URL
+      const response = await fetch(`${FLIGHTS_URL}?${queryParams.toString()}`);
+      if (!response.ok) throw new Error("Error fetching flights.");
+
+      const flightData = await response.json();
+      if (flightData.length === 0) throw new Error("No flights found.");
+
+      setFlights(flightData);
+    } catch (err) {
+      setSearchError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle Booking Submission
+  const handleProceedToPayment = async () => {
+    if (!selectedFlight) {
+      alert("Please select a flight.");
+      return;
+    }
+    if (!passengerName.trim()) {
+      alert("Please enter your name.");
+      return;
+    }
+    if (!email.trim() || !email.includes("@")) {
+      alert("Please enter a valid email.");
+      return;
+    }
+
+    const bookingData = {
+      flight: selectedFlight.id,
+      passenger_name: passengerName,
+      email: email,
+    };
+
+    try {
+      const response = await fetch(RESERVATION_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          flight: flight.id,
-          passenger_name: passengerName, // ✅ Send passenger name directly
-          seat_count: seats, // ✅ Correct field
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bookingData),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Booking failed");
-      }
+      const result = await response.json();
 
-      setBookingStatus("Booking successful!");
-      setTimeout(() => navigate("/"), 2000); // Redirect after success
-    } catch (err) {
-      console.error("Booking Error:", err);
-      setBookingStatus(err.message || "Booking failed. Try again.");
+      if (!response.ok) {
+        setBookingStatus(`Booking failed: ${result.error || "Unknown error"}`);
+      } else {
+        const boardingPassURL = result.boarding_pass
+          ? `http://127.0.0.1:8000/media/${result.boarding_pass}`
+          : null;
+
+        alert(
+          `Booking successful! Check your email for confirmation.\n\n` +
+          (boardingPassURL ? `Download your boarding pass here: ${boardingPassURL}` : "Boarding pass not available.")
+        );
+
+        navigate("/payment", { state: { selectedFlight, passengerName } });
+      }
+    } catch (error) {
+      console.error("Booking error:", error);
+      setBookingStatus("Something went wrong. Please try again.");
     }
   };
 
@@ -50,36 +101,75 @@ const Bookings = () => {
     <div className="booking-page">
       <h1 className="booking-title">Book Your Flight</h1>
 
-      {/* Show Selected Flight Details */}
-      <div className="flight-details">
-        <h3>{flight.flight_number}</h3>
-        <p><strong>From:</strong> {flight.origin} → <strong>To:</strong> {flight.destination}</p>
-        <p><strong>Departure:</strong> {new Date(flight.departure_time).toLocaleString()}</p>
-        <p><strong>Arrival:</strong> {new Date(flight.arrival_time).toLocaleString()}</p>
-        <p><strong>Price:</strong> ${flight.price}</p>
-      </div>
-
-      {/* Booking Form */}
-      <form className="booking-form" onSubmit={handleBooking}>
+      {/* Search Bar */}
+      <div className="flight-search-card">
+        <h2>Search for Available Flights</h2>
         <input 
           type="text" 
-          placeholder="Passenger Name" 
-          value={passengerName} 
-          onChange={(e) => setPassengerName(e.target.value)} 
-          required 
+          placeholder="Flight Number" 
+          value={searchQuery.flightNumber} 
+          onChange={(e) => setSearchQuery({ ...searchQuery, flightNumber: e.target.value })} 
         />
         <input 
-          type="number" 
-          min="1" 
-          value={seats} 
-          onChange={(e) => setSeats(e.target.value)} 
-          required 
+          type="text" 
+          placeholder="Origin" 
+          value={searchQuery.origin} 
+          onChange={(e) => setSearchQuery({ ...searchQuery, origin: e.target.value })} 
         />
-        <button type="submit">Confirm Booking</button>
-      </form>
+        <input 
+          type="text" 
+          placeholder="Destination" 
+          value={searchQuery.destination} 
+          onChange={(e) => setSearchQuery({ ...searchQuery, destination: e.target.value })} 
+        />
+        <button onClick={handleSearch} disabled={loading}>
+          {loading ? "Searching..." : "Search Flights"}
+        </button>
+        {searchError && <p className="error">{searchError}</p>}
+      </div>
 
-      {/* Booking Status */}
-      {bookingStatus && <p className="booking-status">{bookingStatus}</p>}
+      {/* Flight Results */}
+      {flights.length > 0 && (
+        <div className="flight-results">
+          <h2>Available Flights</h2>
+          {flights.map((flight) => (
+            <div
+              key={flight.id}
+              className={`flight-item ${selectedFlight?.id === flight.id ? "selected-flight" : ""}`}
+              onClick={() => setSelectedFlight(flight)}
+            >
+              <h3>{flight.flight_number}</h3>
+              <p><strong>From:</strong> {flight.origin} → <strong>To:</strong> {flight.destination}</p>
+              <p><strong>Departure:</strong> {new Date(flight.departure_time).toLocaleString()}</p>
+              <p><strong>Arrival:</strong> {new Date(flight.arrival_time).toLocaleString()}</p>
+              <p><strong>Price:</strong> ${flight.price}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Booking Form */}
+      {selectedFlight && (
+        <div className="booking-form">
+          <h2>Passenger Details</h2>
+          <input 
+            type="text" 
+            placeholder="Passenger Name" 
+            value={passengerName} 
+            onChange={(e) => setPassengerName(e.target.value)} 
+            required 
+          />
+          <input 
+            type="email" 
+            placeholder="Enter your Email" 
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)} 
+            required 
+          />
+          <button onClick={handleProceedToPayment}>Proceed to Payment</button>
+          {bookingStatus && <p className="status">{bookingStatus}</p>}
+        </div>
+      )}
     </div>
   );
 };

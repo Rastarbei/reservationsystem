@@ -38,7 +38,10 @@ const Navbar = () => {
               <button onClick={handleLogout} className="logout-btn">Logout</button>
             </li>
           ) : (
-            <li><Link to="/login" onClick={() => setMenuOpen(false)}>Login</Link></li>
+            <>
+              <li><Link to="/login" onClick={() => setMenuOpen(false)}>Login</Link></li>
+              <li><Link to="/register" onClick={() => setMenuOpen(false)}>Register</Link></li>
+            </>
           )}
         </ul>
       </div>

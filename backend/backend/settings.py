@@ -1,6 +1,6 @@
 
 from pathlib import Path
-
+import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -33,6 +33,8 @@ INSTALLED_APPS = [
     'flights',
     'reservations',
     'users',
+    "rest_framework.authtoken",  
+
 ]
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = ['http://localhost:3000']
@@ -45,6 +47,9 @@ CSRF_USE_SESSIONS = True
 SESSION_COOKIE_SAMESITE = "None"  # Helps prevent CSRF issues
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = True  # Set to True in production (HTTPS)
+SESSION_ENGINE = "django.contrib.sessions.backends.db"  # Store sessions in the database
+SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
+SESSION_COOKIE_SAMESITE = "Lax"  # Fix potential CSRF/session issues
 
 
 MIDDLEWARE = [
@@ -140,7 +145,7 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.IsAuthenticated',
     ),
 }
 
@@ -151,3 +156,9 @@ AUTHENTICATION_BACKENDS = [
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Native Email Solution for Demo Purposes
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "demo@example.com"  # Fake sender email
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")

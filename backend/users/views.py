@@ -1,11 +1,16 @@
+import json
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import update_last_login
+from django.http import JsonResponse
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework import status
 from .serializers import UserSerializer
 from django.contrib.auth import get_user_model
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.authtoken.models import Token
+from django.views.decorators.csrf import csrf_exempt
+
 
 User = get_user_model()
 
@@ -24,29 +29,52 @@ def register(request):
     user = User.objects.create_user(username=username, email=email, password=password)
     return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
-@api_view(["POST"])
+@csrf_exempt
 def login_view(request):
-    username = request.data.get("username")
-    password = request.data.get("password")
+    """Handles login and redirects users based on their role"""
+    if request.method == "POST":
+        data = json.loads(request.body)
+        username = data.get("username")
+        password = data.get("password")
 
-    user = authenticate(request, username=username, password=password)
+        user = authenticate(username=username, password=password)
+        if user:
+            login(request, user)
+            response_data = {
+                "message": "Login successful",
+                "username": user.username,
+                "email": user.email,
+                "is_admin": user.is_staff,  # Check if user is admin
+            }
+            return JsonResponse(response_data, status=200)
+        else:
+            return JsonResponse({"error": "Invalid credentials"}, status=400)
 
-    if user is None:
-        return Response({"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST)
 
-    login(request, user)
-    update_last_login(None, user)
 
-    # Generate or retrieve token
-    token, created = Token.objects.get_or_create(user=user)
+
+@api_view(["POST"])
+@permission_classes([])
+def logout_view(request):
+    """ Logs out the user and deletes their token """
+    user = request.user
+    logout(request)
+    
+    # Remove the authentication token
+    Token.objects.filter(user=user).delete()
+
+    return Response({"message": "Logged out successfully"}, status=status.HTTP_200_OK)
+
+@api_view(["GET"])
+@permission_classes([])  # Require authentication
+def user_view(request):
+    """ Returns the logged-in user's data """
+    user = request.user
+    if not user.is_authenticated:
+        return Response({"error": "User not authenticated"}, status=status.HTTP_401_UNAUTHORIZED)
 
     return Response({
-        "message": "Login successful",
-        "user_id": user.id,
-        "token": token.key  # Ensure token is returned
+        "username": user.username,
+        "email": user.email,
+        "date_joined": user.date_joined.isoformat(),
     }, status=status.HTTP_200_OK)
-
-@api_view(["POST"])
-def logout_view(request):
-    logout(request)
-    return Response({"message": "Logged out successfully"}, status=status.HTTP_200_OK)

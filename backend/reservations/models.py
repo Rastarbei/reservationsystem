@@ -2,7 +2,7 @@ from django.db import models
 from flights.models import Flight
 
 class Reservation(models.Model):
-    passenger_name = models.CharField(max_length=255)  # ✅ Changed to a simple text field
+    passenger_name = models.CharField(max_length=255)  
     flight = models.ForeignKey(Flight, on_delete=models.CASCADE)
     seat_count = models.PositiveIntegerField(default=1)  # Number of seats booked
     payment_status = models.BooleanField(default=False)
