@@ -13,6 +13,25 @@ from .models import Reservation
 from .serializers import ReservationSerializer
 from flights.models import Flight  # Ensure Flight model is imported
 
+from django.shortcuts import get_object_or_404
+from rest_framework.decorators import api_view
+from .models import Reservation
+from .serializers import ReservationSerializer
+from rest_framework.permissions import AllowAny
+from rest_framework.decorators import api_view, permission_classes  # Ensure this is imported
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def latest_reservation(request):
+    """Returns the latest reservation"""
+    latest_booking = Reservation.objects.order_by("-id").first()
+    if latest_booking:
+        serializer = ReservationSerializer(latest_booking)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    return Response({"error": "No reservations found"}, status=status.HTTP_404_NOT_FOUND)
+
+
 # Ensure MEDIA settings are configured
 BOARDING_PASS_DIR = os.path.join(settings.MEDIA_ROOT, "boarding_passes")
 if not os.path.exists(BOARDING_PASS_DIR):
